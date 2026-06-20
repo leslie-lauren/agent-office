@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Office</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header id="topbar">
+      <h1>Agent&nbsp;Office</h1>
+      <div id="status">
+        <span id="conn-dot" class="dot offline"></span>
+        <span id="conn-text">connecting…</span>
+        <span id="count">0 agents</span>
+        <span id="review-pill" class="review-pill hidden">0 need review</span>
+        <button id="clear-done" class="topbtn hidden" title="Dismiss every agent in Done">Clear done</button>
+      </div>
+
+      <div id="legends">
+        <div id="legend-states" class="legend">
+          <span class="lg-title">state</span>
+          <span><b style="color:#3fa7ff">⌨</b> working</span>
+          <span><b style="color:#aab2c0">·</b> idle</span>
+          <span><b style="color:#37d67a">✓</b> done</span>
+          <span><b style="color:#ff5252">!</b> needs review</span>
+        </div>
+        <div id="legend-sources" class="legend">
+          <span class="lg-title">type (badge)</span>
+          <span class="src-chip" style="--c:#3fa7ff">&lt;/&gt; code</span>
+          <span class="src-chip" style="--c:#ff9d3f">❏ cowork</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <canvas id="office"></canvas>
+      <p id="empty-hint">
+        No agents yet. Start the server and send a test event:
+        <code>npm run send-test-event</code>
+      </p>
+
+      <!-- follows the cursor; shows the full task text on hover -->
+      <div id="tooltip" class="tooltip hidden"></div>
+
+      <!-- click an agent to expand full details here -->
+      <aside id="panel" class="panel hidden">
+        <button id="panel-close" aria-label="Close">×</button>
+        <div id="panel-source" class="panel-source"></div>
+        <h2 id="panel-name"></h2>
+        <div class="panel-row"><span class="k">State</span><span id="panel-state" class="v"></span></div>
+        <div class="panel-row"><span class="k">Source</span><span id="panel-srctext" class="v"></span></div>
+        <div class="panel-row"><span class="k">Last update</span><span id="panel-updated" class="v"></span></div>
+        <div class="panel-row col" id="panel-goal-row" style="display:none">
+          <span class="k">Goal</span><span id="panel-goal" class="v task"></span>
+        </div>
+        <div class="panel-row col"><span class="k">Task</span><span id="panel-task" class="v task"></span></div>
+
+        <!-- rename + recolor (persisted server-side via /agent/:id/override) -->
+        <div class="panel-row col">
+          <span class="k">Rename</span>
+          <div class="rename-row">
+            <input id="rename-input" type="text" maxlength="40" placeholder="custom name" />
+            <button id="btn-rename" class="act">Save</button>
+          </div>
+        </div>
+        <div class="panel-row col" id="panel-where">
+          <span class="k">Where</span>
+          <span id="panel-project" class="v task"></span>
+          <span id="panel-session" class="v meta-sub"></span>
+        </div>
+        <div id="panel-actions" class="panel-actions">
+          <button id="btn-cd" class="act">Copy cd path</button>
+          <button id="btn-focus" class="act">Focus terminal</button>
+        </div>
+        <button id="btn-dismiss" class="act danger" style="display:none">Dismiss from Done</button>
+        <div id="panel-feedback" class="panel-feedback"></div>
+      </aside>
+
+      <p id="hint-foot">Hover for task · click to pin details · double-click to rename</p>
+    </main>
+
+    <!-- plain scripts, no build step: characters.js must load before office.js -->
+    <script src="characters.js"></script>
+    <script src="office.js"></script>
+  </body>
+</html>

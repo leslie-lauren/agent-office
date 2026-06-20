@@ -1,0 +1,224 @@
+#!/bin/bash
+# Agent Office control script — install/run the always-on local server.
+#
+#   ./scripts/office install     install + start the autostart LaunchAgent
+#   ./scripts/office uninstall    stop + remove the LaunchAgent (full undo)
+#   ./scripts/office status       is it running? where? how many agents?
+#   ./scripts/office start        start it (load the LaunchAgent)
+#   ./scripts/office stop         stop it now (returns at next login)
+#   ./scripts/office restart      restart it
+#   ./scripts/office logs         tail the server logs
+#
+# Local-only: the server binds to 127.0.0.1. Nothing here reaches the network.
+
+set -euo pipefail
+
+LABEL="com.agentoffice.server"
+PORT="${PORT:-4317}"
+DOMAIN="gui/$(id -u)"
+PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
+
+# Resolve repo root (parent of this script's dir) and the node binary.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
+NODE="$(command -v node >/dev/null 2>&1 && node -e 'console.log(process.execPath)' || true)"
+
+c_grn(){ printf "\033[32m%s\033[0m\n" "$1"; }
+c_red(){ printf "\033[31m%s\033[0m\n" "$1"; }
+c_dim(){ printf "\033[2m%s\033[0m\n" "$1"; }
+
+# Is "Focus terminal" currently enabled in the installed plist?
+focus_state() { [ -f "$PLIST" ] && grep -q "AGENT_OFFICE_ALLOW_FOCUS" "$PLIST" && echo 1 || echo 0; }
+
+# Read the remote (Tailscale) bind host / token currently baked into the plist.
+plist_val() { [ -f "$PLIST" ] && sed -n "s|.*<key>$1</key><string>\([^<]*\)</string>.*|\1|p" "$PLIST" | head -1; }
+remote_host()  { plist_val AGENT_OFFICE_HOST; }
+remote_token() { plist_val AGENT_OFFICE_TOKEN; }
+
+# Reload the job so launchd re-reads a changed plist (kickstart alone won't).
+reload_job() {
+  launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+  launchctl bootstrap "$DOMAIN" "$PLIST"
+}
+
+# Best-effort Tailscale IPv4 for this Mac (CLI or the app's bundled binary).
+tailscale_ip() {
+  if command -v tailscale >/dev/null 2>&1; then tailscale ip -4 2>/dev/null | head -1; return; fi
+  local app="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+  [ -x "$app" ] && "$app" ip -4 2>/dev/null | head -1
+}
+
+print_remote_url() {
+  local tok="$1" ip; ip="$(tailscale_ip)"
+  echo
+  c_grn "Phone remote control is ON (token required for non-localhost)."
+  if [ -n "$ip" ]; then
+    echo "  Open this on your phone (same tailnet):"
+    c_grn "    http://${ip}:${PORT}/remote.html?token=${tok}"
+  else
+    c_dim "  Tailscale not detected yet. Install it + sign in on this Mac and your"
+    c_dim "  phone, then run:  ./scripts/office remote url"
+    echo  "  URL pattern:  http://<mac-tailscale-ip>:${PORT}/remote.html?token=${tok}"
+  fi
+  echo "  Token: ${tok}"
+  echo
+}
+
+write_plist() {
+  [ -n "$NODE" ] || { c_red "Node not found on PATH. Install Node, then retry."; exit 1; }
+  mkdir -p "$REPO/logs" "$(dirname "$PLIST")"
+  # Preserve the focus setting across reinstalls unless ENABLE_FOCUS overrides it.
+  local enable="${ENABLE_FOCUS:-$(focus_state)}"
+  local focus_line="<!-- focus off; enable with: ./scripts/office focus on -->"
+  [ "$enable" = "1" ] && focus_line="<key>AGENT_OFFICE_ALLOW_FOCUS</key><string>1</string>"
+  # Remote (phone) access: preserved across reinstalls unless REMOTE_HOST overrides.
+  # REMOTE_HOST="" explicitly clears it (back to localhost-only).
+  local rhost rtoken
+  if [ "${REMOTE_HOST+set}" = "set" ]; then rhost="$REMOTE_HOST"; else rhost="$(remote_host)"; fi
+  if [ "${REMOTE_TOKEN+set}" = "set" ]; then rtoken="$REMOTE_TOKEN"; else rtoken="$(remote_token)"; fi
+  local remote_line="<!-- remote off; enable with: ./scripts/office remote on -->"
+  [ -n "$rhost" ] && remote_line="<key>AGENT_OFFICE_HOST</key><string>${rhost}</string><key>AGENT_OFFICE_TOKEN</key><string>${rtoken}</string>"
+  cat > "$PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${NODE}</string>
+    <string>${REPO}/server/index.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>${REPO}</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    <key>PORT</key>
+    <string>${PORT}</string>
+    ${focus_line}
+    ${remote_line}
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>${REPO}/logs/agent-office.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>${REPO}/logs/agent-office.err.log</string>
+</dict>
+</plist>
+PLIST
+}
+
+free_port() {
+  # Stop any non-launchd process holding the port (e.g. a manual `npm start`).
+  local pids; pids="$(lsof -ti:"$PORT" 2>/dev/null || true)"
+  [ -n "$pids" ] && { c_dim "Stopping stray process on :$PORT ($pids)"; echo "$pids" | xargs kill 2>/dev/null || true; sleep 1; }
+}
+
+cmd_install() {
+  free_port
+  write_plist
+  launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+  launchctl bootstrap "$DOMAIN" "$PLIST"
+  launchctl enable "$DOMAIN/$LABEL" 2>/dev/null || true
+  c_grn "Installed and started."
+  echo "  Plist: $PLIST"
+  echo "  Node:  $NODE"
+  echo "  Repo:  $REPO"
+  sleep 1; cmd_status
+}
+
+cmd_uninstall() {
+  launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+  rm -f "$PLIST"
+  c_grn "Uninstalled. LaunchAgent removed: $PLIST"
+}
+
+cmd_start()  { launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null || launchctl kickstart "$DOMAIN/$LABEL"; c_grn "Started."; }
+cmd_stop()   { launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || free_port; c_grn "Stopped (will return at next login unless uninstalled)."; }
+cmd_restart(){ launchctl kickstart -k "$DOMAIN/$LABEL" 2>/dev/null || cmd_start; c_grn "Restarted."; }
+cmd_logs()   { echo "== out =="; tail -n 30 "$REPO/logs/agent-office.out.log" 2>/dev/null || true; echo "== err =="; tail -n 30 "$REPO/logs/agent-office.err.log" 2>/dev/null || true; }
+cmd_reset()  { curl -s -X POST "http://127.0.0.1:$PORT/reset" >/dev/null && c_grn "Cleared all characters. Active sessions reappear on their next activity." || c_red "Couldn't reach the server on :$PORT"; }
+
+cmd_focus() {
+  [ -f "$PLIST" ] || { c_red "Not installed. Run './scripts/office install' first."; exit 1; }
+  case "${1:-}" in
+    on)  ENABLE_FOCUS=1 write_plist; c_grn "Focus ENABLED." ;;
+    off) ENABLE_FOCUS=0 write_plist; c_grn "Focus disabled." ;;
+    *) echo "usage: ./scripts/office focus {on|off}  (currently: $([ "$(focus_state)" = 1 ] && echo on || echo off))"; exit 1 ;;
+  esac
+  reload_job
+  c_dim "Restarted to apply. First click on 'Focus terminal' will ask macOS for Automation permission — click Allow."
+}
+
+# Enable/disable the phone remote control over Tailscale. "on" binds the server
+# to 0.0.0.0 and bakes a shared token into the plist; non-localhost requests must
+# carry that token. "off" reverts to localhost-only. "url" reprints the link.
+cmd_remote() {
+  [ -f "$PLIST" ] || { c_red "Not installed. Run './scripts/office install' first."; exit 1; }
+  case "${1:-url}" in
+    on)
+      local tok; tok="$(remote_token)"
+      [ -n "$tok" ] || tok="$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | xxd -p)"
+      REMOTE_HOST=0.0.0.0 REMOTE_TOKEN="$tok" write_plist
+      reload_job
+      print_remote_url "$tok" ;;
+    off)
+      REMOTE_HOST="" REMOTE_TOKEN="" write_plist
+      reload_job
+      c_grn "Phone remote control disabled. Server bound to 127.0.0.1 only." ;;
+    url)
+      local tok; tok="$(remote_token)"
+      [ -n "$tok" ] || { c_red "Remote control is off. Enable it with: ./scripts/office remote on"; exit 1; }
+      print_remote_url "$tok" ;;
+    *) echo "usage: ./scripts/office remote {on|off|url}"; exit 1 ;;
+  esac
+}
+
+cmd_status() {
+  echo "Agent Office status"
+  if [ -f "$PLIST" ]; then c_grn "  LaunchAgent: installed ($PLIST)"; else c_red "  LaunchAgent: NOT installed"; fi
+  if launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1; then
+    local pid; pid="$(launchctl print "$DOMAIN/$LABEL" 2>/dev/null | awk -F'= ' '/pid =/{print $2; exit}')"
+    c_grn "  launchd:     loaded (pid ${pid:-?})"
+  else
+    c_red "  launchd:     not loaded"
+  fi
+  local health; health="$(curl -s --max-time 2 "http://127.0.0.1:$PORT/health" || true)"
+  if [ -n "$health" ]; then c_grn "  HTTP :$PORT:  responding  $health";
+  else c_red "  HTTP :$PORT:  not responding"; fi
+  local rhost; rhost="$(remote_host)"
+  if [ -n "$rhost" ]; then
+    local ip; ip="$(tailscale_ip)"
+    c_grn "  Remote:      ON (bind $rhost, token set)${ip:+  →  http://${ip}:${PORT}/remote.html}"
+  else
+    c_dim "  Remote:      off (localhost only — enable: ./scripts/office remote on)"
+  fi
+  # warn if the recorded node path drifted (e.g. nvm version change)
+  if [ -f "$PLIST" ] && [ -n "$NODE" ] && ! grep -q "$NODE" "$PLIST"; then
+    c_red "  NOTE: Node path changed. Run './scripts/office install' to refresh the plist."
+  fi
+}
+
+case "${1:-status}" in
+  install) cmd_install ;;
+  uninstall) cmd_uninstall ;;
+  start) cmd_start ;;
+  stop) cmd_stop ;;
+  restart) cmd_restart ;;
+  status) cmd_status ;;
+  logs) cmd_logs ;;
+  reset) cmd_reset ;;
+  focus) cmd_focus "${2:-}" ;;
+  remote) cmd_remote "${2:-}" ;;
+  *) echo "usage: ./scripts/office {install|uninstall|start|stop|restart|status|logs|reset|focus on|focus off|remote on|remote off|remote url}"; exit 1 ;;
+esac

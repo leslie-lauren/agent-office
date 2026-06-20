@@ -1,0 +1,135 @@
+/* Agent Office — phone remote control. Dark, touch-first, single column. */
+:root {
+  --bg: #0d0f15;
+  --panel: #161a24;
+  --panel-2: #1d2230;
+  --line: #2a3142;
+  --text: #e8ecf4;
+  --muted: #8b93a7;
+  --accent: #6ea8fe;
+  --working: #52d273;
+  --review: #ffb454;
+  --idle: #7c879c;
+  --done: #6ea8fe;
+  --danger: #ff6b6b;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
+  background: rgba(13, 15, 21, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.title { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 17px; }
+.title .dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--idle); transition: background .2s;
+}
+.title .dot.live { background: var(--working); box-shadow: 0 0 8px var(--working); }
+.title .dot.down { background: var(--danger); }
+
+.ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ghost:active { background: var(--panel-2); }
+
+.list { padding: 14px 14px 40px; display: flex; flex-direction: column; gap: 18px; }
+
+.group-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted);
+  margin: 4px 2px -4px;
+}
+.group-title .count {
+  color: var(--text); background: var(--panel-2);
+  border-radius: 20px; padding: 1px 8px; font-size: 11px;
+}
+
+.group { display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.card.s-working { border-left-color: var(--working); }
+.card.s-needs_review { border-left-color: var(--review); }
+.card.s-idle { border-left-color: var(--idle); }
+.card.s-done { border-left-color: var(--done); opacity: .82; }
+
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.name { font-weight: 650; font-size: 16px; word-break: break-word; }
+.name .edit { color: var(--muted); font-size: 12px; margin-left: 6px; }
+
+.pill {
+  flex: none;
+  font-size: 11px; font-weight: 700; letter-spacing: .03em;
+  padding: 3px 9px; border-radius: 20px; white-space: nowrap;
+}
+.pill.s-working { background: rgba(82,210,115,.16); color: var(--working); }
+.pill.s-needs_review { background: rgba(255,180,84,.16); color: var(--review); }
+.pill.s-idle { background: rgba(124,135,156,.18); color: var(--idle); }
+.pill.s-done { background: rgba(110,168,254,.16); color: var(--done); }
+
+.task { color: var(--muted); font-size: 13px; word-break: break-word; }
+
+.meta-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+.src { text-transform: capitalize; }
+.sep { opacity: .4; }
+
+.actions { display: flex; gap: 8px; margin-top: 4px; }
+.btn {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.btn:active { filter: brightness(1.25); }
+.btn.dismiss { color: var(--danger); border-color: rgba(255,107,107,.3); }
+
+.empty { color: var(--muted); text-align: center; margin-top: 40px; font-size: 14px; }
+
+.statusbar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  padding: 8px 16px max(8px, env(safe-area-inset-bottom));
+  font-size: 12px; color: var(--muted);
+  background: rgba(13,15,21,.92);
+  border-top: 1px solid var(--line);
+  text-align: center;
+  transform: translateY(120%);
+  transition: transform .2s;
+}
+.statusbar.show { transform: translateY(0); }

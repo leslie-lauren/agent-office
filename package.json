@@ -1,0 +1,24 @@
+{
+  "name": "agent-office",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local mission-control: shows autonomous Claude agents as animated pixel characters in a shared office, driven by a generic status feed.",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/build-check.js",
+    "start": "node server/index.js",
+    "send-test-event": "node scripts/send-test-event.js",
+    "status": "./scripts/office status",
+    "service:install": "./scripts/office install",
+    "service:uninstall": "./scripts/office uninstall",
+    "service:restart": "./scripts/office restart"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

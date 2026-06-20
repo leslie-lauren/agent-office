@@ -1,0 +1,26 @@
+{
+  "_comment": "This is the block to MERGE into ~/.claude/settings.json. Do NOT replace the whole file — add these hook entries into your existing \"hooks\" object. See README for the exact, reviewed diff. Each command pipes Claude Code's event JSON into the Agent Office adapter.",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "node /ABSOLUTE/PATH/TO/agent-office/adapters/claude-code/hook.js" } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "node /ABSOLUTE/PATH/TO/agent-office/adapters/claude-code/hook.js" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "node /ABSOLUTE/PATH/TO/agent-office/adapters/claude-code/hook.js" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "node /ABSOLUTE/PATH/TO/agent-office/adapters/claude-code/hook.js" } ] }
+    ],
+    "Notification": [
+      { "hooks": [ { "type": "command", "command": "node /ABSOLUTE/PATH/TO/agent-office/adapters/claude-code/hook.js" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "node /ABSOLUTE/PATH/TO/agent-office/adapters/claude-code/hook.js" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "node /ABSOLUTE/PATH/TO/agent-office/adapters/claude-code/hook.js" } ] }
+    ]
+  }
+}

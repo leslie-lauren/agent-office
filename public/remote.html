@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#11131a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Agent Office — Remote</title>
+  <link rel="stylesheet" href="remote.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="title">
+      <span class="dot" id="conn-dot" title="connection"></span>
+      Agent Office
+    </div>
+    <button class="ghost" id="btn-reset" type="button">Clear all</button>
+  </header>
+
+  <main id="list" class="list">
+    <p class="empty" id="empty">Connecting…</p>
+  </main>
+
+  <footer class="statusbar" id="statusbar"></footer>
+
+  <script src="remote.js"></script>
+</body>
+</html>
