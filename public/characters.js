@@ -65,6 +65,7 @@ const SOURCE_STYLE = {
   // office.js): "code" = </> brackets, "doc" = a little document/folder.
   "claude-code": { tag: "CODE",     icon: "</>", emblem: "code", color: "#3fa7ff", shirt: "#2f6fe0", plate: "#16365a" },
   "cowork":      { tag: "COWORK",   icon: "❏",   emblem: "chat", color: "#ff9d3f", shirt: "#e8821e", plate: "#4a2c10" },
+  "chat":        { tag: "CHAT",     icon: "❝",   emblem: "chat", color: "#4dd0e1", shirt: "#2fa3b5", plate: "#123c44" },
   "research":    { tag: "RESEARCH", icon: "✦",   emblem: "star", color: "#42d6a8", shirt: "#1f9d74", plate: "#15463a" },
   "routine":     { tag: "ROUTINE",  icon: "⟳",   emblem: "loop", color: "#c77dff", shirt: "#8e44d0", plate: "#3a2452" },
   "data":        { tag: "DATA",     icon: "▤",   emblem: "doc",  color: "#ffb74d", shirt: "#e08a2f", plate: "#4a3416" },
@@ -145,8 +146,11 @@ const DESKS = {
 function deskClusterFor(agent) {
   const ov = agent && agent.override && agent.override.desk;
   if (ov === "coding" || ov === "knowledge") return ov; // manual assignment wins
-  const cowork = agent && (agent.source === "cowork" || (agent.meta && agent.meta.type === "cowork"));
-  return cowork ? "knowledge" : "coding";
+  const src = agent && agent.source;
+  const type = agent && agent.meta && agent.meta.type;
+  const knowledge =
+    src === "cowork" || src === "chat" || type === "cowork" || type === "chat";
+  return knowledge ? "knowledge" : "coding";
 }
 
 window.AgentChars = {

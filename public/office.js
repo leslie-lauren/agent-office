@@ -189,14 +189,16 @@
   // Cowork goal / current task, then a neutral fallback. Never the username.
   function deriveBase(a, m) {
     const goal = shortLabel(m.goal);
-    // Cowork's title/goal is its most meaningful label (its cwd is a sandbox).
-    if (a.source === "cowork" && goal) return goal;
+    // Cowork/chat title/goal is the most meaningful label (cwd is a sandbox).
+    if ((a.source === "cowork" || a.source === "chat") && goal) return goal;
     const proj = m.cwd ? projectName(m.cwd) : "";
     if (proj) return proj;
     if (goal) return goal;
     const task = shortLabel(a.task);
     if (task && !/^(session|thinking|active|finished|demo|waiting)$/i.test(task)) return task;
-    return a.source === "cowork" ? "cowork" : a.source === "claude-code" ? "session" : "";
+    return a.source === "cowork" ? "cowork"
+      : a.source === "chat" ? "chat"
+      : a.source === "claude-code" ? "session" : "";
   }
 
   // Friendly per-agent label. A user-set custom name always wins; otherwise we
@@ -224,7 +226,8 @@
   // A legacy saved override still wins.
   function shirtColor(a) {
     if (a.override && a.override.shirt) return a.override.shirt;
-    if (a.source === "claude-code" || a.source === "cowork") return sourceStyle(a.source).shirt;
+    if (a.source === "claude-code" || a.source === "cowork" || a.source === "chat")
+      return sourceStyle(a.source).shirt;
     return (a.appearance || appearance(a.agent_id)).shirt;
   }
 
@@ -737,7 +740,11 @@
     $("panel-where").style.display = hasWindow ? "flex" : "none";
     $("panel-actions").style.display = hasWindow ? "flex" : "none";
     if (hasWindow) {
-      $("panel-project").textContent = m.cwd || (a.source === "cowork" ? "(Cowork desktop session)" : "(unknown project)");
+      $("panel-project").textContent =
+        m.cwd ||
+        (a.source === "cowork" ? "(Cowork desktop session)"
+          : a.source === "chat" ? "(Claude desktop chat)"
+          : "(unknown project)");
       const term = m.terminal ? ` · ${m.terminal.replace("Apple_", "")}` : (m.entrypoint ? ` · ${m.entrypoint}` : "");
       $("panel-session").textContent = `session ${String(m.session_id || "").slice(0, 8)}${term}`;
       $("btn-cd").disabled = !m.cwd;

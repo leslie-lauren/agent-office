@@ -64,6 +64,10 @@ const ACTIVE_WINDOW_MS = num(
   process.env.AGENT_OFFICE_COWORK_ACTIVE_MS,
   num(process.env.AGENT_OFFICE_FINISHED_MS, 8 * 60 * 60 * 1000)
 );
+// Scheduled-task runs (sessionType "scheduled") are skipped by default — a
+// task that fires every hour would otherwise flood the office with a fresh
+// character per run. Set AGENT_OFFICE_COWORK_INCLUDE_SCHEDULED=1 to show them.
+const INCLUDE_SCHEDULED = process.env.AGENT_OFFICE_COWORK_INCLUDE_SCHEDULED === "1";
 
 function num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
 
@@ -125,13 +129,22 @@ function poll() {
       t.mtime = st.mtimeMs;
       if (meta.sessionId && !t.sessionId) {
         t.sessionId = meta.sessionId;
-        t.agentId = "cowork:" + String(meta.sessionId).replace(/^local_/, "").slice(0, 8);
+        t.agentId =
+          sourceFor(meta) + ":" +
+          String(meta.sessionId).replace(/^local_/, "").slice(0, 8);
       }
       t.meta = meta;
     } else {
       meta = t.meta; // unchanged file — reuse last read, just re-evaluate timers
     }
     if (!meta) continue;
+
+    // Session taxonomy (desktop app's `sessionType` field):
+    //   "scheduled"      → a scheduled-task run (skipped unless opted in)
+    //   absent/null      → a regular agent chat  (source "chat")
+    //   anything else    → Cowork-style session   (source "cowork"),
+    //                      e.g. "dispatch_child", "agent"
+    if (meta.sessionType === "scheduled" && !INCLUDE_SCHEDULED) continue;
 
     const last = Number(meta.lastActivityAt || meta.createdAt || st.mtimeMs);
     const quiet = now - last;
@@ -151,6 +164,16 @@ function poll() {
   }
 }
 
+// Map a session's metadata to the office `source` it should appear as.
+// Regular agent chats (no sessionType) get their own "chat" identity;
+// scheduled runs — when opted in — wear the routine look; everything else
+// (dispatch_child, agent, future values) stays "cowork".
+function sourceFor(meta) {
+  if (meta.sessionType === "scheduled") return "routine";
+  if (!meta.sessionType) return "chat";
+  return "cowork";
+}
+
 // Strip a leading emoji/symbol so the short task label reads cleanly.
 function cleanTitle(title) {
   return String(title || "").replace(/^[\s\p{Extended_Pictographic}←-➿]+/u, "").trim();
@@ -167,17 +190,22 @@ function emit(t, meta, a) {
   if (sig === t.emittedState && !a.end) return; // dedupe; only emit on change
   t.emittedState = a.end ? "" : sig;
 
+  const source = sourceFor(meta);
+  // Chats run inside the managed session store — that path is noise in the
+  // office panel, so only surface cwds that point at a real project folder.
+  const cwd = (meta.cwd || meta.originCwd || "").trim();
+  const managedCwd = /local-agent-mode-sessions|claude-code-sessions/.test(cwd);
   post({
-    agent_id: t.agentId || "cowork:" + String(meta.sessionId || "unknown").slice(0, 8),
-    source: "cowork",
+    agent_id: t.agentId || source + ":" + String(meta.sessionId || "unknown").slice(0, 8),
+    source,
     state: a.state,
     task,
     timestamp: Date.now(),
     meta: {
-      cwd: (meta.cwd || meta.originCwd || "").trim(),
+      cwd: managedCwd ? "" : cwd,
       session_id: meta.sessionId || t.sessionId,
-      entrypoint: "cowork",
-      type: "cowork",
+      entrypoint: source,
+      type: source,
       goal: title,                       // full title (with emoji) for tooltip/panel
       turns: meta.completedTurns,
       lifecycle: a.end ? "end" : "",
