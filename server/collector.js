@@ -8,6 +8,12 @@ const { validateEvent } = require("./validate");
 const state = require("./state");
 const overrides = require("./overrides");
 
+// Scheduled/routine runs are dropped by default — a task that fires on a cron
+// isn't an agent you're actively working with, and each run would add another
+// character to the floor. Set AGENT_OFFICE_INCLUDE_SCHEDULED=1 to show them.
+const INCLUDE_SCHEDULED = process.env.AGENT_OFFICE_INCLUDE_SCHEDULED === "1";
+const SCHEDULED_SOURCES = new Set(["routine", "scheduled"]);
+
 function registerCollector(app, broadcast) {
   // Accept a status event from any feed (Claude Code hook, Cowork watcher,
   // routine, a test curl).
@@ -20,6 +26,11 @@ function registerCollector(app, broadcast) {
 
     const event = result.event;
     const id = event.agent_id;
+
+    // Scheduled tasks stay off the floor (see INCLUDE_SCHEDULED above).
+    if (!INCLUDE_SCHEDULED && SCHEDULED_SOURCES.has(event.source)) {
+      return res.json({ ok: true, ignored: "scheduled" });
+    }
 
     // A dismissed agent stays gone while its watcher keeps re-POSTing quiet
     // (idle/done) updates. Genuine new activity (working/needs_review) means

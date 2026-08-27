@@ -11,10 +11,16 @@
 const agents = new Map(); // agent_id -> { agent_id, source, state, task, timestamp, meta, lastSeen, archived?, completedAt?, summary? }
 
 // How many finished agents to keep parked in the lounge/Done tray before the
-// oldest drops off. Finished agents are meant to linger until you dismiss them
-// (so the tray is a record of what you've completed), so this is a high safety
-// bound rather than a tight cap.
+// oldest drops off. A safety bound on top of the time limit below.
 const DONE_CAP = 60;
+
+// Finished agents only linger this long after completing before they leave the
+// office — keeps the floor showing what's happening NOW plus the last hour of
+// completed work, instead of a full day's clutter.
+const DONE_TTL_MS = (() => {
+  const raw = Number(process.env.AGENT_OFFICE_DONE_TTL_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 60 * 60 * 1000; // 1h
+})();
 
 // Short-lived record of agents that were explicitly dismissed/cleared, so a
 // late/out-of-order event can't resurrect a ghost character. Keyed by
@@ -141,13 +147,20 @@ function clear() {
 }
 
 // Remove agents whose last update is older than maxAgeMs. Returns removed ids.
-// Archived (Done) agents are EXEMPT — they're meant to linger until capped or
-// dismissed, not culled for being idle.
+// Archived (Done) agents use their own clock: they leave DONE_TTL_MS after
+// completing (not lastSeen, which end re-posts would keep refreshing).
 function pruneStale(maxAgeMs) {
   const now = Date.now();
   const removed = [];
   for (const [id, a] of agents) {
-    if (a.archived) continue;
+    if (a.archived) {
+      if (now - (a.completedAt || a.timestamp || 0) > DONE_TTL_MS) {
+        agents.delete(id);
+        tombstones.set(id, Date.now() + TOMBSTONE_MS);
+        removed.push(id);
+      }
+      continue;
+    }
     if (now - (a.lastSeen || a.timestamp || 0) > maxAgeMs) {
       agents.delete(id);
       removed.push(id);

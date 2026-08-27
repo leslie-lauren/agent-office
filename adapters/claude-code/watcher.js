@@ -41,13 +41,14 @@ const WORKING_MS = num(process.env.AGENT_OFFICE_CLAUDE_WORKING_MS, 90 * 1000);
 // Quiet for longer than this → the session is considered finished (→ Done).
 const END_MS = num(process.env.AGENT_OFFICE_CLAUDE_END_MS, 30 * 60 * 1000);
 // Backfill window: adopt a project's latest session if it was active within
-// this long, so recently-FINISHED code projects still appear in the lounge.
-// Default 8h (AGENT_OFFICE_FINISHED_MS — the shared "how long finished agents
-// linger" setting, also used by the Cowork watcher). The Claude-specific
+// this long, so a just-FINISHED code project still appears in the lounge.
+// Default 1h (AGENT_OFFICE_FINISHED_MS — the shared "how long finished agents
+// linger" setting, also used by the Cowork watcher), keeping the office to
+// what's live now plus the last hour of completed work. The Claude-specific
 // AGENT_OFFICE_CLAUDE_ACTIVE_MS still overrides it if you want finer control.
 const ACTIVE_WINDOW_MS = num(
   process.env.AGENT_OFFICE_CLAUDE_ACTIVE_MS,
-  num(process.env.AGENT_OFFICE_FINISHED_MS, 8 * 60 * 60 * 1000)
+  num(process.env.AGENT_OFFICE_FINISHED_MS, 60 * 60 * 1000)
 );
 
 // proj dir -> { fp, sessionId, agentId, cwd, title, mtime, emittedState, ended, read }

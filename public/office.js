@@ -218,7 +218,10 @@
       ? a.agent_id.split(":").pop()
       : String(m.session_id || a.agent_id).replace(/^local_/, "");
     const suffix = String(rawId).replace(/[^a-z0-9]/gi, "").slice(0, 4);
-    return suffix ? `${a.nameBase}·${suffix}` : a.nameBase;
+    // Keep the whole label compact: base capped so base + "·" + tag fits the
+    // small name plate without truncating the unique tag away.
+    const base = a.nameBase.length > 9 ? a.nameBase.slice(0, 9).trim() : a.nameBase;
+    return suffix ? `${base}·${suffix}` : base;
   }
 
   // T-shirt color. Code agents wear blue and Cowork agents wear orange (their
@@ -638,12 +641,12 @@
     const cx = a.rx, y = a.ry + 10;
     const style = styleForState(a.state);
     const bc = style.badgeColor || "#cdd4e0";
-    const w = 142, h = 34;
+    const w = 96, h = 24;
     px(cx - w / 2, y, w, h, "#0c0f17");
-    ctx.strokeStyle = bc; ctx.lineWidth = 2;
-    ctx.strokeRect(cx - w / 2 + 1, y + 1, w - 2, h - 2);
-    outlineText(truncate(displayName(a), 16), cx, y + 15, "#ffffff", "bold 13px ui-monospace, monospace", "center", 2.5);
-    outlineText(style.label, cx, y + 28, bc, "11px ui-monospace, monospace", "center", 2.5);
+    ctx.strokeStyle = bc; ctx.lineWidth = 1;
+    ctx.strokeRect(cx - w / 2 + 0.5, y + 0.5, w - 1, h - 1);
+    outlineText(truncate(displayName(a), 14), cx, y + 10, "#ffffff", "bold 9px ui-monospace, monospace", "center", 2);
+    outlineText(style.label, cx, y + 19, bc, "8px ui-monospace, monospace", "center", 2);
     a.labelBox = { x: cx - w / 2, y, w, h };
   }
 

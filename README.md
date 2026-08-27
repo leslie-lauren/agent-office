@@ -269,15 +269,20 @@ the state heuristic and tunables.
 
 ## Settings
 
-All settings are environment variables read at startup. The one most worth
+All settings are environment variables read at startup. The ones most worth
 knowing:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `AGENT_OFFICE_FINISHED_MS` | `28800000` (8h) | How long a **finished** agent keeps showing up in the lounge / Done tray. A session that last ran within this window is still surfaced; older ones are skipped. Raise it to keep a longer record (e.g. `86400000` for 24h), lower it for a tidier office. |
+| `AGENT_OFFICE_FINISHED_MS` | `3600000` (1h) | How far back the watchers look for **finished** sessions to surface in the lounge / Done tray. A session that last ran within this window is still shown; older ones are skipped. Raise it to keep a longer record (e.g. `28800000` for 8h), lower it for a tidier office. |
+| `AGENT_OFFICE_DONE_TTL_MS` | `3600000` (1h) | How long a finished agent stays parked in the Done tray after completing before it leaves the office on its own. |
+| `AGENT_OFFICE_INCLUDE_SCHEDULED` | off | Scheduled runs (`source: "routine"`/`"scheduled"`, and Cowork scheduled-task sessions) are hidden by default so cron-style tasks don't clutter the floor. Set to `1` to show them. |
 
-Set it on the manual run (`AGENT_OFFICE_FINISHED_MS=86400000 npm start`) or add
-it to the LaunchAgent plist's `EnvironmentVariables` block if you run it
+The result out of the box: the office shows only agents that are **live right
+now, or finished within the last hour** — no scheduled tasks.
+
+Set these on the manual run (`AGENT_OFFICE_FINISHED_MS=28800000 npm start`) or
+add them to the LaunchAgent plist's `EnvironmentVariables` block if you run it
 always-on. The per-feed overrides `AGENT_OFFICE_CLAUDE_ACTIVE_MS` and
 `AGENT_OFFICE_COWORK_ACTIVE_MS` still take precedence if you want a different
 window for one feed.

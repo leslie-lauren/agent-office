@@ -55,14 +55,14 @@ const WORKING_MS = num(process.env.AGENT_OFFICE_COWORK_WORKING_MS, 90 * 1000);
 // Quiet for longer than this → the session is considered finished (→ Done).
 const END_MS = num(process.env.AGENT_OFFICE_COWORK_END_MS, 30 * 60 * 1000);
 // At startup (and first sight of a file) only adopt sessions whose last activity
-// is within this window, so we don't replay weeks-old sessions. Default 8h
+// is within this window, so we don't replay old sessions. Default 1h
 // (AGENT_OFFICE_FINISHED_MS — the shared "how long finished agents linger"
-// setting, also used by the Claude watcher) so recently-finished Cowork sessions
-// stay parked in the lounge/Done tray as a record of what you've completed. The
-// Cowork-specific AGENT_OFFICE_COWORK_ACTIVE_MS still overrides it.
+// setting, also used by the Claude watcher), keeping the office to what's live
+// now plus the last hour of completed Cowork sessions. The Cowork-specific
+// AGENT_OFFICE_COWORK_ACTIVE_MS still overrides it.
 const ACTIVE_WINDOW_MS = num(
   process.env.AGENT_OFFICE_COWORK_ACTIVE_MS,
-  num(process.env.AGENT_OFFICE_FINISHED_MS, 8 * 60 * 60 * 1000)
+  num(process.env.AGENT_OFFICE_FINISHED_MS, 60 * 60 * 1000)
 );
 // Scheduled-task runs (sessionType "scheduled") are skipped by default — a
 // task that fires every hour would otherwise flood the office with a fresh
